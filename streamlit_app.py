@@ -3,7 +3,7 @@ from ultralytics import YOLO
 from PIL import Image
 import numpy as np
 
-st.set_page_config(page_title="Lumbar Spine MRI Classifier", layout="centered")
+st.set_page_config(page_title="Lumbar Spine MRI Classifier", layout="wide")
 
 st.title("Lumbar Spine MRI Diagnosis Tool")
 st.write("Upload an MRI scan image to detect: Herniated Disc, Stenosis, Thecal Sac condition, or Unreadable scan.")
@@ -18,11 +18,15 @@ model = load_model()
 
 uploaded_file = st.file_uploader("Upload MRI image", type=["jpg", "jpeg", "png"])
 
-confidence = st.slider("Confidence threshold", 0.0, 1.0, 0.25, 0.05)
+confidence = st.slider("Confidence threshold", 0.00, 1.00, 0.25, 0.01)
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="Uploaded MRI", use_container_width=True)
+
+    left, right = st.columns(2)
+
+    with left:
+        st.image(image, caption="Uploaded MRI", use_container_width=True)
 
     if st.button("Run Diagnosis"):
         with st.spinner("Analyzing..."):
@@ -32,7 +36,9 @@ if uploaded_file is not None:
             # Annotated image with boxes/labels drawn
             annotated = result.plot()  # returns numpy array (BGR)
             annotated_rgb = annotated[:, :, ::-1]
-            st.image(annotated_rgb, caption="Detection Result", use_container_width=True)
+
+            with right:
+                st.image(annotated_rgb, caption="Detection Result", use_container_width=True)
 
             # List detected classes with confidence
             if len(result.boxes) == 0:
@@ -44,5 +50,8 @@ if uploaded_file is not None:
                     cls_name = model.names[cls_id]
                     conf = float(box.conf[0])
                     st.write(f"- **{cls_name}** — confidence: {conf:.2%}")
+    else:
+        with right:
+            st.info("Click 'Run Diagnosis' to see the result here.")
 
 st.caption("For academic/research demonstration purposes only. Not a substitute for professional medical diagnosis.")
