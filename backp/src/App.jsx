@@ -8,11 +8,9 @@ export default function App() {
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [confidence, setConfidence] = useState(0.25)
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
-  const [dragActive, setDragActive] = useState(false)
   const [page, setPage] = useState('diagnose')
   const inputRef = useRef(null)
 
@@ -22,13 +20,6 @@ export default function App() {
     setPreviewUrl(URL.createObjectURL(selected))
     setResult(null)
     setError(null)
-  }
-
-  function handleDrop(e) {
-    e.preventDefault()
-    setDragActive(false)
-    const dropped = e.dataTransfer.files?.[0]
-    handleFile(dropped)
   }
 
   async function runDiagnosis() {
@@ -56,8 +47,8 @@ export default function App() {
   return (
     <div className="app">
       <header className="masthead">
-        <h1>Lumbar Spine MRI Checker</h1>
-        <p>Upload a scan and see what the model finds.</p>
+        <h1>Lumbar Spine MRI Diagnosis Tool</h1>
+        <p>Upload an MRI scan image to detect: Herniated Disc, Stenosis, Thecal Sac condition, or Unreadable scan.</p>
       </header>
 
       <nav className="nav-tabs">
@@ -65,7 +56,7 @@ export default function App() {
           className={page === 'diagnose' ? 'active' : ''}
           onClick={() => setPage('diagnose')}
         >
-          Check a Scan
+          Diagnose
         </button>
         <button
           className={page === 'about' ? 'active' : ''}
@@ -79,106 +70,82 @@ export default function App() {
         <About />
       ) : (
         <>
-          <section className="step-card">
-            <div className="step-head">
-              <span className="step-num">1</span>
-              <h2>Upload your MRI image</h2>
-            </div>
+          <div className="upload-row">
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/jpeg,image/png"
+              onChange={(e) => handleFile(e.target.files?.[0])}
+              className="file-input"
+            />
+          </div>
 
-            <div
-              className={`dropzone ${dragActive ? 'active' : ''}`}
-              onClick={() => inputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
-              onDragLeave={() => setDragActive(false)}
-              onDrop={handleDrop}
-            >
-              {previewUrl ? (
-                <img src={previewUrl} alt="MRI preview" className="preview-img" />
+          <div className="slider-row">
+            <label>
+              <span>Confidence threshold</span>
+              <span>{confidence.toFixed(2)}</span>
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={confidence}
+              onChange={(e) => setConfidence(parseFloat(e.target.value))}
+            />
+          </div>
+
+          {previewUrl && (
+            <button className="run-btn" onClick={runDiagnosis} disabled={loading}>
+              {loading ? 'Analyzing...' : 'Run Diagnosis'}
+            </button>
+          )}
+
+          {error && <div className="error-banner">{error}</div>}
+
+          {previewUrl && (
+            <div className="compare-row">
+              <div className="compare-col">
+                <img src={previewUrl} alt="Uploaded MRI" className="preview-img" />
+                <p className="img-caption">Uploaded MRI</p>
+              </div>
+              <div className="compare-col">
+                {result ? (
+                  <>
+                    <img src={result.annotated_image} alt="Detection Result" className="preview-img" />
+                    <p className="img-caption">Detection Result</p>
+                  </>
+                ) : (
+                  <div className="placeholder">Click "Run Diagnosis" to see the result here.</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {result && (
+            <>
+              {result.findings.length === 0 ? (
+                <p className="empty-state">No findings detected above this confidence threshold.</p>
               ) : (
                 <>
-                  <span className="icon">📁</span>
-                  <div>Click here, or drag a JPG or PNG into this box</div>
-                </>
-              )}
-              <input
-                ref={inputRef}
-                type="file"
-                accept="image/jpeg,image/png"
-                onChange={(e) => handleFile(e.target.files?.[0])}
-              />
-            </div>
-
-            <button className="help-toggle" onClick={() => setShowAdvanced(!showAdvanced)}>
-              {showAdvanced ? 'Hide advanced setting' : 'Show advanced setting'}
-            </button>
-
-            {showAdvanced && (
-              <div className="slider-row">
-                <label>
-                  <span>How sure should the model be?</span>
-                  <span>{Math.round(confidence * 100)}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={confidence}
-                  onChange={(e) => setConfidence(parseFloat(e.target.value))}
-                />
-                <p className="hint">Lower this if the model isn't finding anything. Raise it to only show its most confident guesses.</p>
-              </div>
-            )}
-          </section>
-
-          <section className="step-card">
-            <div className="step-head">
-              <span className="step-num">2</span>
-              <h2>Run the check</h2>
-            </div>
-            <button className="run-btn" onClick={runDiagnosis} disabled={!file || loading}>
-              {loading ? 'Checking your scan…' : 'Check This Scan'}
-            </button>
-          </section>
-
-          <section className="step-card">
-            <div className="step-head">
-              <span className="step-num">3</span>
-              <h2>See the results</h2>
-            </div>
-
-            {error && <div className="error-banner">{error}</div>}
-
-            {!result && !error && (
-              <p className="empty-state">
-                Nothing here yet — upload a scan above and click "Check This Scan."
-              </p>
-            )}
-
-            {result && (
-              <>
-                <img src={result.annotated_image} alt="Annotated result" className="preview-img" style={{ marginBottom: 16 }} />
-                {result.findings.length === 0 ? (
-                  <p className="empty-state">Nothing was found at this confidence level. Try lowering the advanced setting above.</p>
-                ) : (
+                  <h3 className="findings-title">Findings</h3>
                   <ul className="findings-list">
                     {result.findings.map((f, i) => (
                       <li className="finding" key={i}>
                         <span>{f.class}</span>
-                        <span className="conf">{(f.confidence * 100).toFixed(0)}% sure</span>
+                        <span className="conf">confidence: {(f.confidence * 100).toFixed(2)}%</span>
                       </li>
                     ))}
                   </ul>
-                )}
-              </>
-            )}
-          </section>
+                </>
+              )}
+            </>
+          )}
         </>
       )}
 
       <p className="footnote">
-        Made for a school project. This is not a real medical diagnosis — always check with a doctor.
-        Images you upload are only used to run the check and aren't saved anywhere.
+        For academic/research demonstration purposes only. Not a substitute for professional medical diagnosis.
       </p>
     </div>
   )
